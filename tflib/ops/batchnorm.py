@@ -27,7 +27,14 @@ def Batchnorm(name, axes, inputs, is_training=None, stats_iter=None, update_movi
         moving_variance = lib.param(name+'.moving_variance', np.ones(inputs.get_shape()[1], dtype='float32'), trainable=False)
 
         def _fused_batch_norm_training():
-            return tf.nn.fused_batch_norm(inputs, scale, offset, epsilon=1e-5, data_format='NHWC')
+            """
+            print(inputs.get_shape())
+            print(scale.get_shape())
+            print(offset.get_shape())
+            """
+            result = tf.nn.fused_batch_norm(inputs, scale, offset, epsilon=1e-5, data_format='NHWC')
+            #result = tf.transpose(result, [0,3,1,2], name='NHWC_to_NCHW')
+            return result;
         def _fused_batch_norm_inference():
             # Version which blends in the current item's statistics
             batch_size = tf.cast(tf.shape(inputs)[0], 'float32')

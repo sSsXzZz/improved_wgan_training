@@ -24,6 +24,7 @@ def Conv2D(name, input_dim, output_dim, filter_size, inputs, he_init=True, mask_
 
     returns: tensor of shape (batch size, num channels, height, width)
     """
+
     with tf.name_scope(name) as scope:
 
         if mask_type is not None:
@@ -103,13 +104,17 @@ def Conv2D(name, input_dim, output_dim, filter_size, inputs, he_init=True, mask_
             with tf.name_scope('filter_mask'):
                 filters = filters * mask
 
+
+        inputs = tf.transpose(inputs, [0,2,3,1], name='NCHW_to_NHWC')
+        strides=[1,stride,stride,1]
         result = tf.nn.conv2d(
             input=inputs, 
             filter=filters, 
-            strides=[1, 1, stride, stride],
+            strides=strides,
             padding='SAME',
             data_format='NHWC'
         )
+        result = tf.transpose(result, [0,3,1,2], name='NHWC_to_NCHW')
 
         if biases:
             _biases = lib.param(
@@ -117,7 +122,9 @@ def Conv2D(name, input_dim, output_dim, filter_size, inputs, he_init=True, mask_
                 np.zeros(output_dim, dtype='float32')
             )
 
+            result = tf.transpose(result, [0,2,3,1], name='NCHW_to_NHWC')
             result = tf.nn.bias_add(result, _biases, data_format='NHWC')
+            result = tf.transpose(result, [0,3,1,2], name='NHWC_to_NCHW')
 
 
         return result
