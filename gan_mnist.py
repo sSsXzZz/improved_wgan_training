@@ -19,12 +19,12 @@ import tflib.save_images
 import tflib.mnist
 import tflib.plot
 
-MODE = 'wgan-gp' # dcgan, wgan, or wgan-gp
+MODE = 'dcgan-gp' # dcgan, wgan, dcgan-gp, or wgan-gp
 DIM = 64 # Model dimensionality
 BATCH_SIZE = 50 # Batch size
 CRITIC_ITERS = 5 # For WGAN and WGAN-GP, number of critic iters per gen iter
-LAMBDA = 10 # Gradient penalty lambda hyperparameter
-ITERS = 200000 # How many generator iterations to train for 
+LAMBDA = 100 # Gradient penalty lambda hyperparameter
+ITERS = 5000 # How many generator iterations to train for 
 OUTPUT_DIM = 784 # Number of pixels in MNIST (28*28)
 
 lib.print_model_settings(locals().copy())
@@ -55,7 +55,6 @@ def LeakyReLULayer(name, n_in, n_out, inputs):
 def Generator(n_samples, noise=None):
     if noise is None:
         noise = tf.random_normal([n_samples, 128])
-
     output = lib.ops.linear.Linear('Generator.Input', 128, 4*4*4*DIM, noise)
     if MODE == 'wgan':
         output = lib.ops.batchnorm.Batchnorm('Generator.BN1', [0], output)
@@ -96,7 +95,8 @@ def Discriminator(inputs):
     output = LeakyReLU(output)
 
     output = tf.reshape(output, [-1, 4*4*4*DIM])
-    output = lib.ops.linear.Linear('Discriminator.Output', 4*4*4*DIM, 1, output)
+    #output = lib.ops.linear.Linear('Discriminator.Output', 4*4*4*DIM, 1, output)
+    output = tf.nn.sigmoid(output)
 
     return tf.reshape(output, [-1])
 
@@ -120,6 +120,7 @@ if MODE == 'wgan':
         learning_rate=5e-5
     ).minimize(disc_cost, var_list=disc_params)
 
+
     clip_ops = []
     for var in lib.params_with_name('Discriminator'):
         clip_bounds = [-.01, .01]
@@ -130,6 +131,7 @@ if MODE == 'wgan':
             )
         )
     clip_disc_weights = tf.group(*clip_ops)
+
 
 elif MODE == 'wgan-gp':
     gen_cost = -tf.reduce_mean(disc_fake)
@@ -187,6 +189,45 @@ elif MODE == 'dcgan':
 
     clip_disc_weights = None
 
+elif MODE == 'dcgan-gp':
+    gen_cost = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
+        labels=disc_fake, 
+        logits=tf.ones_like(disc_fake)
+    ))
+
+    disc_cost =  tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
+        labels=disc_fake, 
+        logits=tf.zeros_like(disc_fake)
+    ))
+    disc_cost += tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
+        labels=disc_real, 
+        logits=tf.ones_like(disc_real)
+    ))
+    disc_cost /= 2
+
+    alpha = tf.random_uniform(
+        shape=[BATCH_SIZE,1], 
+        minval=0.,
+        maxval=1.
+    )
+
+    differences = fake_data - real_data
+    interpolates = real_data + (alpha*differences)
+    gradients = tf.gradients(Discriminator(interpolates), [interpolates])[0]
+    slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients), reduction_indices=[1]))
+    gradient_penalty = tf.reduce_mean((slopes-1.)**2)
+    disc_cost += LAMBDA*gradient_penalty
+
+    gen_train_op = tf.train.AdamOptimizer(
+        learning_rate=2e-4, 
+        beta1=0.5
+    ).minimize(gen_cost, var_list=gen_params)
+    disc_train_op = tf.train.AdamOptimizer(
+        learning_rate=2e-4, 
+        beta1=0.5
+    ).minimize(disc_cost, var_list=disc_params)
+
+    clip_disc_weights = None
 # For saving samples
 fixed_noise = tf.constant(np.random.normal(size=(128, 128)).astype('float32'))
 fixed_noise_samples = Generator(128, noise=fixed_noise)
@@ -217,7 +258,7 @@ with tf.Session() as session:
         if iteration > 0:
             _ = session.run(gen_train_op)
 
-        if MODE == 'dcgan':
+        if MODE == 'dcgan' or MODE == 'dcgan-gp':
             disc_iters = 1
         else:
             disc_iters = CRITIC_ITERS
@@ -247,7 +288,7 @@ with tf.Session() as session:
             generate_image(iteration, _data)
 
         # Write logs every 100 iters
-        if (iteration < 5) or (iteration % 100 == 99):
-            lib.plot.flush()
+        #if (iteration < 5) or (iteration % 100 == 99):
+        lib.plot.flush()
 
         lib.plot.tick()
