@@ -23,9 +23,9 @@ MODE = 'dcgan-gp' # dcgan, wgan, dcgan-gp, or wgan-gp
 DIM = 64 # Model dimensionality
 BATCH_SIZE = 50 # Batch size
 CRITIC_ITERS = 5 # For WGAN and WGAN-GP, number of critic iters per gen iter
-LAMBDA = 100 # Gradient penalty lambda hyperparameter
-ITERS = 5000 # How many generator iterations to train for 
-OUTPUT_DIM = 784 # Number of pixels in MNIST (28*28)
+LAMBDA = 10 # Gradient penalty lambda hyperparameter
+ITERS = 6000 # How many generator iterations to train for 
+OUTPUT_DIM = 784 # Number of pixels in MNIST (28*28)    
 
 lib.print_model_settings(locals().copy())
 
@@ -95,8 +95,8 @@ def Discriminator(inputs):
     output = LeakyReLU(output)
 
     output = tf.reshape(output, [-1, 4*4*4*DIM])
-    #output = lib.ops.linear.Linear('Discriminator.Output', 4*4*4*DIM, 1, output)
-    output = tf.nn.sigmoid(output)
+    output = lib.ops.linear.Linear('Discriminator.Output', 4*4*4*DIM, 1, output)
+
 
     return tf.reshape(output, [-1])
 
@@ -191,17 +191,17 @@ elif MODE == 'dcgan':
 
 elif MODE == 'dcgan-gp':
     gen_cost = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
-        labels=disc_fake, 
-        logits=tf.ones_like(disc_fake)
+        logits=disc_fake, 
+        labels=tf.ones_like(disc_fake)
     ))
 
     disc_cost =  tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
-        labels=disc_fake, 
-        logits=tf.zeros_like(disc_fake)
+        logits=disc_fake, 
+        labels=tf.zeros_like(disc_fake)
     ))
     disc_cost += tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
-        labels=disc_real, 
-        logits=tf.ones_like(disc_real)
+        logits=disc_real, 
+        labels=tf.ones_like(disc_real)
     ))
     disc_cost /= 2
 
@@ -215,7 +215,7 @@ elif MODE == 'dcgan-gp':
     interpolates = real_data + (alpha*differences)
     gradients = tf.gradients(Discriminator(interpolates), [interpolates])[0]
     slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients), reduction_indices=[1]))
-    gradient_penalty = tf.reduce_mean((slopes-1.)**2)
+    gradient_penalty = tf.reduce_mean((slopes-1.)**2)   
     disc_cost += LAMBDA*gradient_penalty
 
     gen_train_op = tf.train.AdamOptimizer(

@@ -1,0 +1,16 @@
+Uppercase local vars:
+	BATCH_SIZE: 50
+	CRITIC_ITERS: 5
+	DIM: 64
+	ITERS: 2500
+	LAMBDA: 1000.0
+	MODE: dcgan-gp
+	OUTPUT_DIM: 784
+iter 0	train disc cost	242.025878906	time	1.90785908699
+iter 1	train disc cost	147.731063843	time	2.62986516953
+iter 2	train disc cost	71.3397445679	time	2.53433990479
+iter 3	train disc cost	23.9491329193	time	2.57978987694
+iter 4	train disc cost	3.37095236778	time	2.80786800385
+iter 5	train disc cost	2.32769680023	time	2.67793178558
+iter 6	train disc cost	4.31171369553	time	2.577657938
+iter 7	train disc cost	4.73560523987	time	2.7310090065
